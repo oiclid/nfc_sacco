@@ -58,7 +58,7 @@ class StationsModule(QWidget):
         
         layout.addLayout(header_layout)
         
-        # Stations table
+        # Stations table with expanded columns
         self.table = QTableWidget()
         self.table.setColumnCount(10)
         self.table.setHorizontalHeaderLabels([
@@ -90,28 +90,17 @@ class StationsModule(QWidget):
         # Set row height
         self.table.verticalHeader().setDefaultSectionSize(50)
         
-        # Column widths
-        header = self.table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)  # Station ID
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)  # Station Name
-        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)  # City
-        header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)  # Contact Person
-        header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)  # Phone
-        header.setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)  # Total Members
-        header.setSectionResizeMode(6, QHeaderView.ResizeMode.ResizeToContents)  # Active Members
-        header.setSectionResizeMode(7, QHeaderView.ResizeMode.ResizeToContents)  # Total Savings
-        header.setSectionResizeMode(8, QHeaderView.ResizeMode.ResizeToContents)  # Total Loans
-        header.setSectionResizeMode(9, QHeaderView.ResizeMode.Fixed)  # Actions
-        
-        self.table.setColumnWidth(0, 100)
-        self.table.setColumnWidth(2, 120)
-        self.table.setColumnWidth(3, 150)
-        self.table.setColumnWidth(4, 120)
-        self.table.setColumnWidth(5, 130)
-        self.table.setColumnWidth(6, 130)
-        self.table.setColumnWidth(7, 180)
-        self.table.setColumnWidth(8, 120)
-        self.table.setColumnWidth(9, 160)
+        # Column widths - NO cramped columns, user can scroll horizontally if needed
+        self.table.setColumnWidth(0, 120)   # Station ID
+        self.table.setColumnWidth(1, 200)   # Station Name - EXPANDED
+        self.table.setColumnWidth(2, 150)   # City
+        self.table.setColumnWidth(3, 180)   # Contact Person
+        self.table.setColumnWidth(4, 130)   # Phone
+        self.table.setColumnWidth(5, 130)   # Total Members
+        self.table.setColumnWidth(6, 130)   # Active Members
+        self.table.setColumnWidth(7, 180)   # Total Savings Balance - EXPANDED
+        self.table.setColumnWidth(8, 120)   # Total Loans - shows total amount owed
+        self.table.setColumnWidth(9, 200)   # Actions - enough space for two buttons
         
         layout.addWidget(self.table)
         
@@ -139,7 +128,7 @@ class StationsModule(QWidget):
         total_members = 0
         total_active_members = 0
         total_savings = 0
-        total_loans = 0
+        total_loans_amount = 0
         
         for station in stations:
             row = self.table.rowCount()
@@ -165,58 +154,64 @@ class StationsModule(QWidget):
             city_item.setFont(QFont("Segoe UI", 10))
             self.table.setItem(row, 2, city_item)
             
+            # Contact Person
+            contact_item = QTableWidgetItem(station.get('contact_person') or 'N/A')
+            contact_item.setFont(QFont("Segoe UI", 10))
+            self.table.setItem(row, 3, contact_item)
+            
+            # Phone
+            phone_item = QTableWidgetItem(station.get('contact_phone') or 'N/A')
+            phone_item.setFont(QFont("Segoe UI", 10))
+            self.table.setItem(row, 4, phone_item)
+            
             # Total Members
             members_item = QTableWidgetItem(str(stats['total_members']))
             members_item.setFont(QFont("Segoe UI", 10))
             members_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.table.setItem(row, 3, members_item)
+            self.table.setItem(row, 5, members_item)
             
             # Active Members
             active_item = QTableWidgetItem(str(stats['active_members']))
             active_item.setFont(QFont("Segoe UI", 10))
             active_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.table.setItem(row, 4, active_item)
+            self.table.setItem(row, 6, active_item)
             
-            # Total Savings Balance
+            # Total Savings Balance - ONLY shows the balance
             savings_item = QTableWidgetItem(f"₦{stats['total_savings']:,.2f}")
             savings_item.setFont(QFont("Segoe UI", 10))
             savings_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-            self.table.setItem(row, 5, savings_item)
+            self.table.setItem(row, 7, savings_item)
             
-            # Total Loans
-            loans_item = QTableWidgetItem(str(stats['total_loans']))
+            # Total Loans - SHOWS TOTAL AMOUNT OWED BY STATION
+            loans_item = QTableWidgetItem(f"₦{stats['total_loans_amount']:,.2f}")
             loans_item.setFont(QFont("Segoe UI", 10))
-            loans_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.table.setItem(row, 6, loans_item)
+            loans_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            self.table.setItem(row, 8, loans_item)
             
-            # Actions
+            # Actions - Two separate buttons that don't squash each other
             actions_widget = QWidget()
             actions_layout = QHBoxLayout(actions_widget)
             actions_layout.setContentsMargins(4, 4, 4, 4)
-            actions_layout.setSpacing(4)
+            actions_layout.setSpacing(8)
             
-            view_btn = QPushButton("👁️")
-            view_btn.setToolTip("View Details")
-            view_btn.setMinimumHeight(35)
-            view_btn.setMinimumWidth(40)
-            view_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            view_btn.clicked.connect(lambda checked, s=station, st=stats: self.view_station_details(s, st))
-            actions_layout.addWidget(view_btn)
-            
-            edit_btn = QPushButton("✏️")
-            edit_btn.setToolTip("Edit Station")
+            # Edit Station button
+            edit_btn = QPushButton("✏️ Edit")
             edit_btn.setMinimumHeight(35)
-            edit_btn.setMinimumWidth(40)
+            edit_btn.setMinimumWidth(90)
             edit_btn.setCursor(Qt.CursorShape.PointingHandCursor)
             edit_btn.clicked.connect(lambda checked, s=station: self.edit_station(s))
             actions_layout.addWidget(edit_btn)
             
-            delete_btn = QPushButton("🗑️")
-            delete_btn.setToolTip("Delete Station")
+            # Delete Station button
+            delete_btn = QPushButton("🗑️ Delete")
             delete_btn.setMinimumHeight(35)
-            delete_btn.setMinimumWidth(40)
+            delete_btn.setMinimumWidth(100)
             delete_btn.setCursor(Qt.CursorShape.PointingHandCursor)
             delete_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #E74C3C;
+                    color: white;
+                }
                 QPushButton:hover {
                     background-color: #C0392B;
                 }
@@ -224,20 +219,20 @@ class StationsModule(QWidget):
             delete_btn.clicked.connect(lambda checked, s=station, st=stats: self.delete_station(s, st))
             actions_layout.addWidget(delete_btn)
             
-            self.table.setCellWidget(row, 7, actions_widget)
+            self.table.setCellWidget(row, 9, actions_widget)
             
             # Add to totals
             total_members += stats['total_members']
             total_active_members += stats['active_members']
             total_savings += stats['total_savings']
-            total_loans += stats['total_loans']
+            total_loans_amount += stats['total_loans_amount']
         
         # Update summary
         self.summary_label.setText(
             f"Total Stations: {len(stations)} | "
             f"Total Members: {total_members} (Active: {total_active_members}) | "
             f"Total Savings: ₦{total_savings:,.2f} | "
-            f"Total Loans: {total_loans}"
+            f"Total Loans Owed: ₦{total_loans_amount:,.2f}"
         )
     
     def _get_station_stats(self, station_id):
@@ -262,23 +257,23 @@ class StationsModule(QWidget):
         )
         total_savings = savings_result['total_savings'] if savings_result else 0
         
-        # Get total loans count
+        # Get total loans AMOUNT (what the station owes)
         loans_result = self.db.fetchone(
             """
-            SELECT COUNT(*) as total_loans
+            SELECT COALESCE(SUM(l.balance_outstanding), 0) as total_loans_amount
             FROM loans l
             JOIN members m ON l.member_id = m.member_id
-            WHERE m.station_id = ?
+            WHERE m.station_id = ? AND l.status = 'Active'
             """,
             (station_id,)
         )
-        total_loans = loans_result['total_loans'] if loans_result else 0
+        total_loans_amount = loans_result['total_loans_amount'] if loans_result else 0
         
         return {
             'total_members': total_members,
             'active_members': active_members,
             'total_savings': total_savings,
-            'total_loans': total_loans
+            'total_loans_amount': total_loans_amount
         }
     
     def view_station_details(self, station, stats):
@@ -288,7 +283,25 @@ class StationsModule(QWidget):
     
     def add_station(self):
         """Show add station dialog"""
-        dialog = StationDialog(self.db, parent=self)
+        # Get the next sequential station ID
+        existing_stations = self.db.fetchall(
+            "SELECT station_id FROM stations ORDER BY station_id DESC LIMIT 1"
+        )
+        
+        if existing_stations and existing_stations[0]['station_id']:
+            # Get last station ID and increment
+            last_id = existing_stations[0]['station_id']
+            try:
+                next_num = int(last_id) + 1
+                next_id = f"{next_num:02d}"  # Format as 01, 02, etc.
+            except ValueError:
+                # If last ID is not numeric, start from 01
+                next_id = "01"
+        else:
+            # No stations yet, start from 01
+            next_id = "01"
+        
+        dialog = StationDialog(self.db, next_station_id=next_id, parent=self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             try:
                 station_data = dialog.get_station_data()
@@ -322,13 +335,16 @@ class StationsModule(QWidget):
                 )
     
     def edit_station(self, station):
-        """Show edit station dialog"""
-        # Warning dialog before editing
-        reply = QMessageBox.question(
+        """Show edit station dialog with warning"""
+        # WARNING DIALOG before editing
+        reply = QMessageBox.warning(
             self,
-            "Edit Station",
-            f"Do you want to edit station '{station['station_name']}'?\n\n"
-            "This will update the station's information.",
+            "⚠️ Edit Station - Warning",
+            f"You are about to edit station '{station['station_name']}'.\n\n"
+            f"Station ID: {station['station_id']}\n"
+            f"City: {station.get('city', 'N/A')}\n\n"
+            "⚠️ CAUTION: Editing station information may affect all members at this station.\n\n"
+            "Are you sure you want to proceed?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No
         )
@@ -371,50 +387,74 @@ class StationsModule(QWidget):
                 )
     
     def delete_station(self, station, stats):
-        """Delete a station with confirmation"""
-        # Check if station has members
+        """Delete a station with confirmation and warnings"""
+        # First check: Does station have members?
         if stats['total_members'] > 0:
-            QMessageBox.warning(
+            QMessageBox.critical(
                 self,
-                "Cannot Delete Station",
+                "❌ Cannot Delete Station",
                 f"Station '{station['station_name']}' cannot be deleted because it has {stats['total_members']} member(s).\n\n"
-                "Please transfer or remove all members before deleting this station."
+                "⚠️ You must transfer or remove all members from this station before it can be deleted.\n\n"
+                "This safety measure prevents accidental data loss.",
+                QMessageBox.StandardButton.Ok
             )
             return
         
-        # Confirmation dialog
-        reply = QMessageBox.question(
+        # WARNING DIALOG - explaining the dangers
+        reply = QMessageBox.warning(
             self,
-            "Confirm Deletion",
-            f"Are you sure you want to delete station '{station['station_name']}'?\n\n"
-            f"Station ID: {station['station_id']}\n"
-            f"City: {station.get('city', 'N/A')}\n\n"
-            "⚠️ This action cannot be undone!",
+            "⚠️ DANGER - Delete Station",
+            f"⚠️ ⚠️ ⚠️ PERMANENT DELETION WARNING ⚠️ ⚠️ ⚠️\n\n"
+            f"You are about to PERMANENTLY DELETE:\n"
+            f"  • Station Name: {station['station_name']}\n"
+            f"  • Station ID: {station['station_id']}\n"
+            f"  • City: {station.get('city', 'N/A')}\n\n"
+            f"⚠️ DANGERS OF PROCEEDING:\n"
+            f"  • This action CANNOT be undone\n"
+            f"  • All station data will be permanently lost\n"
+            f"  • Historical records may be affected\n"
+            f"  • Reports may show incomplete data\n\n"
+            f"This is a destructive operation that should only be performed\n"
+            f"if you are absolutely certain this station should be removed.\n\n"
+            f"Are you ABSOLUTELY SURE you want to delete this station?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No
         )
         
+        # Only proceed if user explicitly says Yes
         if reply == QMessageBox.StandardButton.Yes:
-            try:
-                # Delete station from database
-                self.db.execute(
-                    "DELETE FROM stations WHERE station_id = ?",
-                    (station['station_id'],)
-                )
-                
-                QMessageBox.information(
-                    self,
-                    "Success",
-                    f"Station '{station['station_name']}' deleted successfully!"
-                )
-                self.refresh()
+            # Second confirmation - are you REALLY sure?
+            final_reply = QMessageBox.critical(
+                self,
+                "🛑 FINAL CONFIRMATION",
+                f"This is your LAST CHANCE to cancel.\n\n"
+                f"Station '{station['station_name']}' will be PERMANENTLY DELETED.\n\n"
+                f"Click YES only if you are 100% certain.",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No
+            )
             
-            except Exception as e:
-                QMessageBox.critical(
-                    self,
-                    "Error",
-                    f"Failed to delete station:\n{str(e)}"
-                )
+            if final_reply == QMessageBox.StandardButton.Yes:
+                try:
+                    # Delete station from database
+                    self.db.execute(
+                        "DELETE FROM stations WHERE station_id = ?",
+                        (station['station_id'],)
+                    )
+                    
+                    QMessageBox.information(
+                        self,
+                        "Success",
+                        f"Station '{station['station_name']}' has been deleted."
+                    )
+                    self.refresh()
+                
+                except Exception as e:
+                    QMessageBox.critical(
+                        self,
+                        "Error",
+                        f"Failed to delete station:\n{str(e)}"
+                    )
 
 
 class StationDetailsDialog(QDialog):
@@ -474,7 +514,9 @@ class StationDetailsDialog(QDialog):
         savings_label.setStyleSheet("font-weight: bold; color: #27AE60;")
         stats_layout.addRow("Total Savings Balance:", savings_label)
         
-        stats_layout.addRow("Total Loans:", QLabel(str(self.stats['total_loans'])))
+        loans_label = QLabel(f"₦{self.stats['total_loans_amount']:,.2f}")
+        loans_label.setStyleSheet("font-weight: bold; color: #E74C3C;")
+        stats_layout.addRow("Total Loans Owed:", loans_label)
         
         stats_group.setLayout(stats_layout)
         layout.addWidget(stats_group)
@@ -549,10 +591,11 @@ class StationDetailsDialog(QDialog):
 class StationDialog(QDialog):
     """Dialog for adding/editing stations"""
     
-    def __init__(self, db, station=None, parent=None):
+    def __init__(self, db, station=None, next_station_id=None, parent=None):
         super().__init__(parent)
         self.db = db
         self.station = station
+        self.next_station_id = next_station_id
         self.is_edit_mode = station is not None
         
         title = "Edit Station" if self.is_edit_mode else "Add New Station"
@@ -570,27 +613,37 @@ class StationDialog(QDialog):
         form_layout = QFormLayout()
         form_layout.setSpacing(12)
         
-        # Station ID (disabled in edit mode)
+        # City (moved to top for new stations)
+        self.city_input = QLineEdit()
+        self.city_input.setPlaceholderText("e.g., Lagos")
+        if self.is_edit_mode:
+            self.city_input.setText(self.station.get('city', ''))
+        else:
+            # Connect city input to auto-generate station name
+            self.city_input.textChanged.connect(self.auto_generate_station_name)
+        form_layout.addRow("City*:", self.city_input)
+        
+        # Station ID (auto-filled with next sequential ID)
         self.station_id_input = QLineEdit()
-        self.station_id_input.setPlaceholderText("e.g., NFC-JOS")
+        self.station_id_input.setPlaceholderText("Auto-generated (01-99)")
         if self.is_edit_mode:
             self.station_id_input.setText(self.station['station_id'])
             self.station_id_input.setEnabled(False)
+        else:
+            # Auto-fill with next ID
+            if self.next_station_id:
+                self.station_id_input.setText(self.next_station_id)
+            self.station_id_input.setEnabled(False)  # Make it read-only
         form_layout.addRow("Station ID*:", self.station_id_input)
         
-        # Station Name
+        # Station Name (auto-generated as NFC-City)
         self.station_name_input = QLineEdit()
-        self.station_name_input.setPlaceholderText("e.g., Jos Station")
+        self.station_name_input.setPlaceholderText("Auto-generated: NFC-[City]")
         if self.is_edit_mode:
             self.station_name_input.setText(self.station['station_name'])
+        else:
+            self.station_name_input.setEnabled(False)  # Auto-generated, read-only
         form_layout.addRow("Station Name*:", self.station_name_input)
-        
-        # City
-        self.city_input = QLineEdit()
-        self.city_input.setPlaceholderText("e.g., Jos")
-        if self.is_edit_mode:
-            self.city_input.setText(self.station.get('city', ''))
-        form_layout.addRow("City*:", self.city_input)
         
         # Address
         self.address_input = QTextEdit()
@@ -603,7 +656,10 @@ class StationDialog(QDialog):
         layout.addLayout(form_layout)
         
         # Note
-        note = QLabel("* Required fields")
+        if self.is_edit_mode:
+            note = QLabel("* Required fields")
+        else:
+            note = QLabel("* Station ID and Name are auto-generated. Just enter the City name.")
         note.setStyleSheet("color: #E67E22; font-size: 9pt; font-style: italic;")
         layout.addWidget(note)
         
@@ -616,11 +672,42 @@ class StationDialog(QDialog):
         button_box.rejected.connect(self.reject)
         layout.addWidget(button_box)
     
+    def auto_generate_station_name(self, city_text):
+        """Auto-generate station name as NFC-City when city is entered"""
+        if not self.is_edit_mode and city_text.strip():
+            station_name = f"NFC-{city_text.strip()}"
+            self.station_name_input.setText(station_name)
+    
     def validate_and_accept(self):
         """Validate inputs before accepting"""
         # Check required fields
-        if not self.station_id_input.text().strip():
+        station_id = self.station_id_input.text().strip()
+        
+        # Validate station ID format (must be 01-99)
+        if not station_id:
             QMessageBox.warning(self, "Validation Error", "Please enter a Station ID.")
+            self.station_id_input.setFocus()
+            return
+        
+        # Check if it's a valid 2-digit number
+        try:
+            id_num = int(station_id)
+            if id_num < 1 or id_num > 99:
+                QMessageBox.warning(
+                    self, 
+                    "Validation Error", 
+                    "Station ID must be between 01 and 99."
+                )
+                self.station_id_input.setFocus()
+                return
+            # Ensure it's 2 digits with leading zero if needed
+            self.station_id_input.setText(f"{id_num:02d}")
+        except ValueError:
+            QMessageBox.warning(
+                self, 
+                "Validation Error", 
+                "Station ID must be a number between 01 and 99."
+            )
             self.station_id_input.setFocus()
             return
         

@@ -40,18 +40,6 @@ class MembersModule(QWidget):
         
         header_layout.addStretch()
         
-        # Status filter
-        status_label = QLabel("Status:")
-        status_label.setStyleSheet("font-size: 11pt; padding-right: 5px;")
-        header_layout.addWidget(status_label)
-        
-        self.status_filter = QComboBox()
-        self.status_filter.addItems(["All", "Active", "Inactive", "Deceased"])
-        self.status_filter.setMinimumHeight(40)
-        self.status_filter.setMinimumWidth(130)
-        self.status_filter.currentTextChanged.connect(self.filter_by_status)
-        header_layout.addWidget(self.status_filter)
-        
         # Search
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Search by ID or name...")
@@ -84,34 +72,27 @@ class MembersModule(QWidget):
         self.table.setAlternatingRowColors(True)
         self.table.verticalHeader().setVisible(False)
         
-        # Enable sorting
-        self.table.setSortingEnabled(True)
-        
-        # Enable scrollbars - BOTH horizontal and vertical
-        self.table.setHorizontalScrollMode(QTableWidget.ScrollMode.ScrollPerPixel)
-        self.table.setVerticalScrollMode(QTableWidget.ScrollMode.ScrollPerPixel)
-        self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
+        # Enable scrollbars - FIXED: Allow horizontal scrolling
         self.table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
+        self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         
-        # Set row height to be taller (readable)
-        self.table.verticalHeader().setDefaultSectionSize(50)
+        # Set row height to be taller (readable) - increased for better button visibility
+        self.table.verticalHeader().setDefaultSectionSize(60)
         
-        # Column widths - wider actions column to prevent overlap
+        # Column widths - FIXED: Give Actions column enough space
         self.table.setColumnWidth(0, 120)  # Member ID
         self.table.setColumnWidth(1, 250)  # Name
         self.table.setColumnWidth(2, 80)   # Gender
         self.table.setColumnWidth(3, 130)  # Phone
-        self.table.setColumnWidth(4, 150)  # Station
-        self.table.setColumnWidth(5, 120)  # Date Joined
-        self.table.setColumnWidth(6, 100)  # Status
-        self.table.setColumnWidth(7, 150)  # Actions - WIDER to prevent overlap
-        self.table.setColumnWidth(3, 130)  # Phone
         self.table.setColumnWidth(4, 180)  # Station
         self.table.setColumnWidth(5, 120)  # Date Joined
         self.table.setColumnWidth(6, 100)  # Status
+        self.table.setColumnWidth(7, 260)  # Actions - FIXED: Enough space for 3 buttons
         
-        # Make last column (Actions) stretch
-        self.table.horizontalHeader().setStretchLastSection(True)
+        # Don't stretch last column - use fixed width instead
+        self.table.horizontalHeader().setStretchLastSection(False)
+        # Allow horizontal scrolling when needed
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         
         layout.addWidget(self.table)
         
@@ -128,9 +109,6 @@ class MembersModule(QWidget):
     
     def populate_table(self, members):
         """Populate table with members"""
-        # Temporarily disable sorting while populating
-        self.table.setSortingEnabled(False)
-        
         self.table.setRowCount(0)
         
         for member in members:
@@ -192,32 +170,35 @@ class MembersModule(QWidget):
             status_item.setBackground(Qt.GlobalColor.darkGray if status == "Inactive" else (Qt.GlobalColor.red if status == "Deceased" else Qt.GlobalColor.darkGreen))
             self.table.setItem(row, 6, status_item)
             
-            # Actions - Fixed layout to prevent overlap
+            # Actions - Properly sized buttons with vertical centering
             actions_widget = QWidget()
             actions_layout = QHBoxLayout(actions_widget)
-            actions_layout.setContentsMargins(2, 2, 2, 2)
-            actions_layout.setSpacing(3)
+            actions_layout.setContentsMargins(5, 5, 5, 5)
+            actions_layout.setSpacing(5)
+            actions_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
             
-            view_btn = QPushButton("👁️")
-            view_btn.setToolTip("View Details")
-            view_btn.setMinimumHeight(35)
-            view_btn.setMinimumWidth(40)
-            view_btn.setMaximumWidth(40)
+            view_btn = QPushButton("View")
+            view_btn.setMinimumHeight(40)
+            view_btn.setMinimumWidth(65)
             view_btn.setCursor(Qt.CursorShape.PointingHandCursor)
             view_btn.clicked.connect(lambda checked, m=member: self.view_member(m))
             actions_layout.addWidget(view_btn)
             
-            edit_btn = QPushButton("✏️")
-            edit_btn.setToolTip("Edit Member")
-            edit_btn.setMinimumHeight(35)
-            edit_btn.setMinimumWidth(40)
-            edit_btn.setMaximumWidth(40)
+            edit_btn = QPushButton("Edit")
+            edit_btn.setMinimumHeight(40)
+            edit_btn.setMinimumWidth(65)
             edit_btn.setCursor(Qt.CursorShape.PointingHandCursor)
             edit_btn.clicked.connect(lambda checked, m=member: self.edit_member(m))
             actions_layout.addWidget(edit_btn)
             
-            # No stretch - buttons stay together
-            actions_layout.addSpacing(0)
+            status_btn = QPushButton("Status")
+            status_btn.setMinimumHeight(40)
+            status_btn.setMinimumWidth(65)
+            status_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            status_btn.clicked.connect(lambda checked, m=member: self.change_status(m))
+            actions_layout.addWidget(status_btn)
+            
+            actions_layout.addStretch()
             self.table.setCellWidget(row, 7, actions_widget)
         
         # Update summary
@@ -229,42 +210,17 @@ class MembersModule(QWidget):
         self.summary_label.setText(
             f"Total Members: {total} | Active: {active} | Inactive: {inactive} | Deceased: {deceased}"
         )
-        
-        # Re-enable sorting after populating
-        self.table.setSortingEnabled(True)
-    
-    def filter_by_status(self):
-        """Filter members by status"""
-        status = self.status_filter.currentText()
-        
-        # Get all members
-        all_members = self.db.get_all_members(active_only=False)
-        
-        # Filter based on status
-        if status == "Active":
-            filtered = [m for m in all_members if m['is_active'] and not m['is_deceased']]
-        elif status == "Inactive":
-            filtered = [m for m in all_members if not m['is_active'] and not m['is_deceased']]
-        elif status == "Deceased":
-            filtered = [m for m in all_members if m['is_deceased']]
-        else:  # "All"
-            filtered = all_members
-        
-        # Apply search filter if there's a search term
-        search_term = self.search_input.text().strip()
-        if search_term:
-            filtered = [m for m in filtered if 
-                       search_term.upper() in m['member_id'].upper() or
-                       search_term.lower() in m['first_name'].lower() or
-                       search_term.lower() in (m.get('middle_name') or '').lower() or
-                       search_term.lower() in m['last_name'].lower()]
-        
-        self.populate_table(filtered)
     
     def search_members(self):
-        """Search members - works together with status filter"""
-        # Just trigger the filter method which handles both search and status
-        self.filter_by_status()
+        """Search members"""
+        search_term = self.search_input.text().strip()
+        
+        if not search_term:
+            self.refresh()
+            return
+        
+        members = self.db.search_members(search_term)
+        self.populate_table(members)
     
     def add_member(self):
         """Show add member dialog"""
@@ -290,21 +246,6 @@ class MembersModule(QWidget):
     
     def edit_member(self, member):
         """Show edit member dialog"""
-        # Warning dialog before editing
-        full_name = f"{member['first_name']} {member.get('middle_name', '')} {member['last_name']}".strip()
-        reply = QMessageBox.question(
-            self,
-            "Edit Member",
-            f"Do you want to edit member '{full_name}'?\n\n"
-            f"Member ID: {member['member_id']}\n\n"
-            "This will update the member's information.",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No
-        )
-        
-        if reply != QMessageBox.StandardButton.Yes:
-            return
-        
         dialog = MemberDialog(self.db, member, parent=self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             try:
@@ -329,6 +270,48 @@ class MembersModule(QWidget):
         """Show member details"""
         dialog = MemberDetailsDialog(self.db, member, self)
         dialog.exec()
+    
+    def change_status(self, member):
+        """Change member status (Active/Inactive/Deceased)"""
+        dialog = ChangeStatusDialog(self.db, member, parent=self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            try:
+                status_data = dialog.get_status_data()
+                
+                # Update member status in database
+                self.db.execute(
+                    """
+                    UPDATE members 
+                    SET is_active = ?, 
+                        is_deceased = ?, 
+                        deceased_date = ?,
+                        modified_date = datetime('now'),
+                        modified_by = ?
+                    WHERE member_id = ?
+                    """,
+                    (
+                        status_data['is_active'],
+                        status_data['is_deceased'],
+                        status_data['deceased_date'],
+                        self.current_user['username'],
+                        member['member_id']
+                    )
+                )
+                
+                status_name = "Deceased" if status_data['is_deceased'] else ("Active" if status_data['is_active'] else "Inactive")
+                QMessageBox.information(
+                    self,
+                    "Success",
+                    f"Member status changed to: {status_name}"
+                )
+                self.refresh()
+            
+            except Exception as e:
+                QMessageBox.critical(
+                    self,
+                    "Error",
+                    f"Failed to update member status:\n{str(e)}"
+                )
 
 
 class MemberDialog(QDialog):
@@ -341,7 +324,18 @@ class MemberDialog(QDialog):
         self.is_edit = member is not None
         
         self.setWindowTitle("Edit Member" if self.is_edit else "Add Member")
-        self.setMinimumSize(700, 800)  # Bigger dialog
+        
+        # Make dialog responsive to screen size
+        if parent:
+            screen = parent.screen().availableGeometry()
+            # Use 60% of screen height, max 800px
+            dialog_height = min(int(screen.height() * 0.60), 800)
+            dialog_width = min(int(screen.width() * 0.50), 700)
+            self.resize(dialog_width, dialog_height)
+        else:
+            self.setMinimumSize(600, 500)
+            self.resize(700, 700)
+        
         self.setup_ui()
         
         if self.is_edit:
@@ -593,3 +587,151 @@ class MemberDetailsDialog(QDialog):
         close_btn.setMinimumHeight(40)
         close_btn.clicked.connect(self.accept)
         layout.addWidget(close_btn)
+
+
+class ChangeStatusDialog(QDialog):
+    """Dialog for changing member status"""
+    
+    def __init__(self, db, member, parent=None):
+        super().__init__(parent)
+        self.db = db
+        self.member = member
+        
+        self.setWindowTitle(f"Change Status - {member['member_id']}")
+        self.setMinimumWidth(500)
+        self.setup_ui()
+    
+    def setup_ui(self):
+        """Setup user interface"""
+        layout = QVBoxLayout(self)
+        layout.setSpacing(20)
+        
+        # Member info header
+        member_name = f"{self.member['first_name']}"
+        if self.member['middle_name']:
+            member_name += f" {self.member['middle_name']}"
+        member_name += f" {self.member['last_name']}"
+        
+        header = QLabel(f"<h2>Change Status for {member_name}</h2>")
+        header.setTextFormat(Qt.TextFormat.RichText)
+        layout.addWidget(header)
+        
+        info = QLabel(f"<b>Member ID:</b> {self.member['member_id']}")
+        info.setTextFormat(Qt.TextFormat.RichText)
+        layout.addWidget(info)
+        
+        # Current status
+        if self.member['is_deceased']:
+            current_status = "Deceased"
+        elif self.member['is_active']:
+            current_status = "Active"
+        else:
+            current_status = "Inactive"
+        
+        current_label = QLabel(f"<b>Current Status:</b> <span style='color: {'red' if current_status == 'Deceased' else ('green' if current_status == 'Active' else 'orange')};'>{current_status}</span>")
+        current_label.setTextFormat(Qt.TextFormat.RichText)
+        layout.addWidget(current_label)
+        
+        # Status selection
+        status_group = QGroupBox("New Status")
+        status_layout = QVBoxLayout()
+        
+        self.status_combo = QComboBox()
+        self.status_combo.setMinimumHeight(40)
+        self.status_combo.addItem("Active", "active")
+        self.status_combo.addItem("Inactive", "inactive")
+        self.status_combo.addItem("Deceased", "deceased")
+        
+        # Set current status as default
+        if self.member['is_deceased']:
+            self.status_combo.setCurrentIndex(2)
+        elif self.member['is_active']:
+            self.status_combo.setCurrentIndex(0)
+        else:
+            self.status_combo.setCurrentIndex(1)
+        
+        self.status_combo.currentIndexChanged.connect(self.on_status_changed)
+        status_layout.addWidget(self.status_combo)
+        
+        status_group.setLayout(status_layout)
+        layout.addWidget(status_group)
+        
+        # Deceased date (only shown when Deceased is selected)
+        self.deceased_group = QGroupBox("Deceased Date")
+        deceased_layout = QFormLayout()
+        
+        self.deceased_date_input = QDateEdit()
+        self.deceased_date_input.setMinimumHeight(40)
+        self.deceased_date_input.setCalendarPopup(True)
+        self.deceased_date_input.setDate(QDate.currentDate())
+        
+        if self.member['deceased_date']:
+            self.deceased_date_input.setDate(
+                QDate.fromString(self.member['deceased_date'], 'yyyy-MM-dd')
+            )
+        
+        deceased_layout.addRow("Date:", self.deceased_date_input)
+        self.deceased_group.setLayout(deceased_layout)
+        layout.addWidget(self.deceased_group)
+        
+        # Initially hide deceased date if not deceased
+        self.deceased_group.setVisible(self.member['is_deceased'])
+        
+        # Warning message
+        self.warning_label = QLabel()
+        self.warning_label.setWordWrap(True)
+        self.warning_label.setStyleSheet("color: #E74C3C; padding: 10px; background-color: #3D1F1F; border-radius: 4px;")
+        layout.addWidget(self.warning_label)
+        self.update_warning()
+        
+        layout.addStretch()
+        
+        # Buttons
+        button_box = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Save | 
+            QDialogButtonBox.StandardButton.Cancel
+        )
+        button_box.button(QDialogButtonBox.StandardButton.Save).setMinimumHeight(40)
+        button_box.button(QDialogButtonBox.StandardButton.Cancel).setMinimumHeight(40)
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        layout.addWidget(button_box)
+    
+    def on_status_changed(self):
+        """Handle status selection change"""
+        status = self.status_combo.currentData()
+        self.deceased_group.setVisible(status == "deceased")
+        self.update_warning()
+    
+    def update_warning(self):
+        """Update warning message based on selected status"""
+        status = self.status_combo.currentData()
+        
+        if status == "deceased":
+            self.warning_label.setText(
+                "⚠️ WARNING: Marking a member as deceased is permanent and will:\n"
+                "• Close all active accounts\n"
+                "• Prevent any new transactions\n"
+                "• Trigger death benefit processing (if enabled)"
+            )
+            self.warning_label.setVisible(True)
+        elif status == "inactive":
+            self.warning_label.setText(
+                "ℹ️ Marking a member as inactive will:\n"
+                "• Prevent new loans or savings accounts\n"
+                "• Allow existing transactions to continue\n"
+                "• Member can be reactivated later"
+            )
+            self.warning_label.setVisible(True)
+        else:
+            self.warning_label.setVisible(False)
+    
+    def get_status_data(self):
+        """Get status data from form"""
+        status = self.status_combo.currentData()
+        
+        return {
+            'is_active': 1 if status == "active" else 0,
+            'is_deceased': 1 if status == "deceased" else 0,
+            'deceased_date': self.deceased_date_input.date().toString('yyyy-MM-dd') if status == "deceased" else None
+        }

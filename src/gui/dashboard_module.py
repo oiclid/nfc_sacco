@@ -7,7 +7,7 @@ Overview dashboard with metrics, charts, and quick actions
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QGridLayout, QGroupBox, QComboBox, QFrame, QScrollArea,
-    QSizePolicy
+    QSizePolicy, QDialog
 )
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QFont, QPainter, QColor, QPen
@@ -30,6 +30,8 @@ class DashboardModule(QWidget):
         
         # View mode: 'numbers', 'charts', 'graphs'
         self.view_mode = 'numbers'
+        # Time period for graphs: 'daily', 'weekly', 'monthly', 'yearly'
+        self.time_period = 'daily'
         
         self.setup_ui()
         self.refresh_data()
@@ -58,16 +60,9 @@ class DashboardModule(QWidget):
         title.setFont(QFont("Segoe UI", 24, QFont.Weight.Bold))
         header_layout.addWidget(title)
         
-        header_layout.addStretch()
-        
-        # Last updated label
-        self.last_updated_label = QLabel()
-        self.last_updated_label.setStyleSheet("color: #7F8C8D; font-size: 10pt;")
-        header_layout.addWidget(self.last_updated_label)
-        
-        # View mode selector
+        # View mode selector - positioned in the middle/left for visibility
         view_label = QLabel("View Mode:")
-        view_label.setStyleSheet("font-size: 11pt; margin-right: 5px;")
+        view_label.setStyleSheet("font-size: 11pt; margin-left: 30px; margin-right: 5px;")
         header_layout.addWidget(view_label)
         
         self.view_combo = QComboBox()
@@ -78,6 +73,31 @@ class DashboardModule(QWidget):
         self.view_combo.addItem("📉 Graphs", "graphs")
         self.view_combo.currentIndexChanged.connect(self.change_view_mode)
         header_layout.addWidget(self.view_combo)
+        
+        # Time period selector (only visible in graphs mode)
+        self.period_label = QLabel("Time Period:")
+        self.period_label.setStyleSheet("font-size: 11pt; margin-left: 20px; margin-right: 5px;")
+        self.period_label.setVisible(False)
+        header_layout.addWidget(self.period_label)
+        
+        self.period_combo = QComboBox()
+        self.period_combo.setMinimumHeight(40)
+        self.period_combo.setMinimumWidth(150)
+        self.period_combo.addItem("📅 Daily", "daily")
+        self.period_combo.addItem("📅 Weekly", "weekly")
+        self.period_combo.addItem("📅 Monthly", "monthly")
+        self.period_combo.addItem("📅 Yearly", "yearly")
+        self.period_combo.currentIndexChanged.connect(self.change_time_period)
+        self.period_combo.setVisible(False)
+        header_layout.addWidget(self.period_combo)
+        
+        # Add stretch to push remaining items to the right
+        header_layout.addStretch()
+        
+        # Last updated label
+        self.last_updated_label = QLabel()
+        self.last_updated_label.setStyleSheet("color: #7F8C8D; font-size: 10pt;")
+        header_layout.addWidget(self.last_updated_label)
         
         # Refresh button
         refresh_btn = QPushButton("🔄 Refresh")
@@ -194,7 +214,19 @@ class DashboardModule(QWidget):
     def change_view_mode(self):
         """Change view mode between numbers, charts, and graphs"""
         self.view_mode = self.view_combo.currentData()
+        
+        # Show/hide time period selector based on view mode
+        show_period = self.view_mode == 'graphs'
+        self.period_label.setVisible(show_period)
+        self.period_combo.setVisible(show_period)
+        
         self.refresh_data()
+    
+    def change_time_period(self):
+        """Change time period for graphs"""
+        self.time_period = self.period_combo.currentData()
+        if self.view_mode == 'graphs':
+            self.refresh_data()
     
     def refresh_data(self):
         """Refresh dashboard data"""
@@ -284,7 +316,65 @@ class DashboardModule(QWidget):
             if t['transaction_type'] == 'Withdrawal'
         )
         
-        # Daily transactions for last 7 days
+        # Transactions for different time periods based on view mode
+        if self.time_period == 'daily':
+            # Last 7 days
+            stats['period_transactions'] = {}
+            for i in range(7):
+                date = (datetime.now() - timedelta(days=i)).strftime('%Y-%m-%d')
+                day_name = (datetime.now() - timedelta(days=i)).strftime('%a')
+                count = sum(1 for t in transactions if t['transaction_date'].startswith(date))
+                stats['period_transactions'][day_name] = count
+            stats['period_label'] = 'Daily (Last 7 Days)'
+            
+        elif self.time_period == 'weekly':
+            # Last 8 weeks
+            stats['period_transactions'] = {}
+            for i in range(8):
+                week_start = datetime.now() - timedelta(days=datetime.now().weekday() + (i * 7))
+                week_end = week_start + timedelta(days=6)
+                week_label = f"Week {8-i}"
+                count = 0
+                for t in transactions:
+                    trans_date = datetime.strptime(t['transaction_date'], '%Y-%m-%d %H:%M:%S' if ' ' in t['transaction_date'] else '%Y-%m-%d')
+                    if week_start.date() <= trans_date.date() <= week_end.date():
+                        count += 1
+                stats['period_transactions'][week_label] = count
+            stats['period_label'] = 'Weekly (Last 8 Weeks)'
+            
+        elif self.time_period == 'monthly':
+            # Last 12 months
+            stats['period_transactions'] = {}
+            for i in range(12):
+                month_date = datetime.now() - timedelta(days=30*i)
+                month_label = month_date.strftime('%b %Y')
+                month_str = month_date.strftime('%Y-%m')
+                count = sum(1 for t in transactions if t['transaction_date'].startswith(month_str))
+                stats['period_transactions'][month_label] = count
+            stats['period_label'] = 'Monthly (Last 12 Months)'
+            # Reverse to show oldest first
+            stats['period_transactions'] = dict(reversed(list(stats['period_transactions'].items())))
+            
+        elif self.time_period == 'yearly':
+            # Last 5 years
+            stats['period_transactions'] = {}
+            current_year = datetime.now().year
+            for i in range(5):
+                year = current_year - i
+                year_str = str(year)
+                # Count all transactions for this year
+                all_transactions = self.db.fetchall("""
+                    SELECT COUNT(*) as count
+                    FROM transactions
+                    WHERE strftime('%Y', transaction_date) = ?
+                """, (year_str,))
+                count = all_transactions[0]['count'] if all_transactions else 0
+                stats['period_transactions'][year_str] = count
+            stats['period_label'] = 'Yearly (Last 5 Years)'
+            # Reverse to show oldest first
+            stats['period_transactions'] = dict(reversed(list(stats['period_transactions'].items())))
+        
+        # Keep daily_transactions for backward compatibility
         stats['daily_transactions'] = {}
         for i in range(7):
             date = (datetime.now() - timedelta(days=i)).strftime('%Y-%m-%d')
@@ -547,15 +637,15 @@ class DashboardModule(QWidget):
         graphs_row = QHBoxLayout()
         graphs_row.setSpacing(15)
         
-        # Daily transactions bar chart (last 7 days)
-        daily_chart = self.create_bar_chart(
-            "Daily Transactions (Last 7 Days)",
-            list(reversed(list(stats['daily_transactions'].keys()))),
-            [list(reversed(list(stats['daily_transactions'].values())))],
+        # Period transactions bar chart (based on selected time period)
+        period_chart = self.create_bar_chart(
+            f"Transactions - {stats.get('period_label', 'Daily')}",
+            list(reversed(list(stats['period_transactions'].keys()))),
+            [list(reversed(list(stats['period_transactions'].values())))],
             ["Transactions"],
             ["#3498DB"]
         )
-        graphs_row.addWidget(daily_chart)
+        graphs_row.addWidget(period_chart)
         
         # Savings vs Loans comparison
         comparison_chart = self.create_bar_chart(
@@ -598,7 +688,11 @@ class DashboardModule(QWidget):
         
         chart_view = QChartView(chart)
         chart_view.setRenderHint(QPainter.RenderHint.Antialiasing)
-        chart_view.setMinimumHeight(350)
+        chart_view.setMinimumHeight(400)  # Increased from 350
+        chart_view.setCursor(Qt.CursorShape.PointingHandCursor)
+        
+        # Make chart clickable - expand on click
+        chart_view.mousePressEvent = lambda event: self.expand_chart(chart, title, data, 'pie', show_percentage)
         
         return chart_view
     
@@ -640,9 +734,105 @@ class DashboardModule(QWidget):
         
         chart_view = QChartView(chart)
         chart_view.setRenderHint(QPainter.RenderHint.Antialiasing)
-        chart_view.setMinimumHeight(350)
+        chart_view.setMinimumHeight(400)  # Increased from 350
+        chart_view.setCursor(Qt.CursorShape.PointingHandCursor)
+        
+        # Make chart clickable - expand on click
+        chart_data = {'categories': categories, 'data_sets': data_sets, 'set_names': set_names, 'colors': colors}
+        chart_view.mousePressEvent = lambda event: self.expand_chart(chart, title, chart_data, 'bar')
         
         return chart_view
+    
+    def expand_chart(self, original_chart, title, data, chart_type, show_percentage=False):
+        """Expand chart in a larger dialog window"""
+        dialog = QDialog(self)
+        dialog.setWindowTitle(title)
+        dialog.setMinimumSize(900, 700)
+        
+        layout = QVBoxLayout(dialog)
+        
+        # Recreate the chart at larger size
+        if chart_type == 'pie':
+            series = QPieSeries()
+            total = sum(value for _, value, _ in data)
+            
+            for label, value, color in data:
+                if value > 0:
+                    slice = series.append(label, value)
+                    slice.setColor(QColor(color))
+                    slice.setLabelVisible(True)
+                    if show_percentage:
+                        percentage = (value / total * 100) if total > 0 else 0
+                        slice.setLabel(f"{label}\n{percentage:.1f}%")
+                    else:
+                        slice.setLabel(f"{label}\n{int(value)}")
+            
+            chart = QChart()
+            chart.addSeries(series)
+            chart.setTitle(title)
+            chart.setAnimationOptions(QChart.AnimationOption.SeriesAnimations)
+            chart.setBackgroundBrush(QColor("#2D2D32"))
+            chart.setTitleBrush(QColor("#E6E6EB"))
+            chart.legend().setLabelColor(QColor("#E6E6EB"))
+            chart.legend().setFont(QFont("Segoe UI", 11))
+            
+            chart_view = QChartView(chart)
+            chart_view.setRenderHint(QPainter.RenderHint.Antialiasing)
+            
+        elif chart_type == 'bar':
+            categories = data['categories']
+            data_sets = data['data_sets']
+            set_names = data['set_names']
+            colors = data['colors']
+            
+            series_list = []
+            for i, (dataset, name, color) in enumerate(zip(data_sets, set_names, colors)):
+                bar_set = QBarSet(name)
+                bar_set.setColor(QColor(color))
+                for value in dataset:
+                    bar_set.append(value)
+                series_list.append(bar_set)
+            
+            series = QBarSeries()
+            for bar_set in series_list:
+                series.append(bar_set)
+            
+            chart = QChart()
+            chart.addSeries(series)
+            chart.setTitle(title)
+            chart.setAnimationOptions(QChart.AnimationOption.SeriesAnimations)
+            chart.setBackgroundBrush(QColor("#2D2D32"))
+            chart.setTitleBrush(QColor("#E6E6EB"))
+            chart.legend().setLabelColor(QColor("#E6E6EB"))
+            chart.legend().setFont(QFont("Segoe UI", 11))
+            
+            # X Axis
+            axis_x = QBarCategoryAxis()
+            axis_x.append(categories)
+            axis_x.setLabelsColor(QColor("#E6E6EB"))
+            axis_x.setLabelsFont(QFont("Segoe UI", 10))
+            chart.addAxis(axis_x, Qt.AlignmentFlag.AlignBottom)
+            series.attachAxis(axis_x)
+            
+            # Y Axis
+            axis_y = QValueAxis()
+            axis_y.setLabelsColor(QColor("#E6E6EB"))
+            axis_y.setLabelsFont(QFont("Segoe UI", 10))
+            chart.addAxis(axis_y, Qt.AlignmentFlag.AlignLeft)
+            series.attachAxis(axis_y)
+            
+            chart_view = QChartView(chart)
+            chart_view.setRenderHint(QPainter.RenderHint.Antialiasing)
+        
+        layout.addWidget(chart_view)
+        
+        # Close button
+        close_btn = QPushButton("Close")
+        close_btn.setMinimumHeight(40)
+        close_btn.clicked.connect(dialog.close)
+        layout.addWidget(close_btn)
+        
+        dialog.exec()
     
     def get_color_for_index(self, index):
         """Get color for chart based on index"""

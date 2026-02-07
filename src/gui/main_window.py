@@ -14,13 +14,14 @@ from datetime import datetime
 
 # Import modules - using relative imports from same directory
 from .dashboard_module import DashboardModule
+from .stations_module import StationsModule
 from .members_module import MembersModule
 from .savings_module import SavingsModule
 from .loans_module import LoansModule
 from .transactions_module import TransactionsModule
 from .reports_module import ReportsModule
 from .settings_module import SettingsModule
-from .stations_module import StationsModule
+
 
 
 class MainWindow(QMainWindow):
@@ -44,8 +45,35 @@ class MainWindow(QMainWindow):
     def setup_ui(self):
         """Setup user interface"""
         self.setWindowTitle("NFC Cooperative Management System")
-        self.setMinimumSize(1024, 600)  # Reasonable minimum size
-        self.resize(1200, 700)  # Default size, but resizable
+        
+        # Get available screen geometry (excludes taskbar)
+        screen = self.screen().availableGeometry()
+        
+        # Set reasonable minimum size
+        self.setMinimumSize(1024, 600)
+        
+        # For larger screens, start maximized
+        if screen.width() >= 1920 and screen.height() >= 1080:
+            # Large screen - start maximized
+            self.showMaximized()
+        elif screen.width() >= 1366 and screen.height() >= 768:
+            # Medium screen - use 90% of screen
+            window_width = int(screen.width() * 0.90)
+            window_height = int(screen.height() * 0.90)
+            self.resize(window_width, window_height)
+            # Center window
+            x = (screen.width() - window_width) // 2
+            y = (screen.height() - window_height) // 2
+            self.move(screen.x() + x, screen.y() + y)
+        else:
+            # Smaller screen - use 95% of screen
+            window_width = int(screen.width() * 0.95)
+            window_height = int(screen.height() * 0.95)
+            self.resize(window_width, window_height)
+            # Center window
+            x = (screen.width() - window_width) // 2
+            y = (screen.height() - window_height) // 2
+            self.move(screen.x() + x, screen.y() + y)
         
         # Central widget
         central_widget = QWidget()
@@ -153,22 +181,25 @@ class MainWindow(QMainWindow):
         nav_items = []
         
         # Dashboard (everyone can see)
-        nav_items.append(("📊 Dashboard", 0))
+        nav_items.append(("🏠 Dashboard", 0))
+
+        # Stations (Maintain permission)
+        if self.current_user['can_maintain']:
+            nav_items.append(("🏢 Stations", 6))
         
         # Members (Maintain permission)
         if self.current_user['can_maintain']:
             nav_items.append(("👥 Members", 1))
-            nav_items.append(("📍 Stations", 2))
         
         # Savings (Operate permission)
         if self.current_user['can_operate']:
-            nav_items.append(("💰 Savings", 3))
-            nav_items.append(("💳 Loans", 4))
-            nav_items.append(("📊 Transactions", 5))
+            nav_items.append(("💰 Savings", 2))
+            nav_items.append(("💳 Loans", 3))
+            nav_items.append(("📊 Transactions", 4))
         
         # Reports (Reports permission)
         if self.current_user['can_view_reports']:
-            nav_items.append(("📈 Reports", 6))
+            nav_items.append(("📈 Reports", 5))
         
         # Settings (Maintain permission)
         if self.current_user['can_maintain']:
@@ -234,7 +265,7 @@ class MainWindow(QMainWindow):
         # Create module instances
         self.modules = []
         
-        # Dashboard module (everyone can see)
+        # Dashboard module (always first, everyone can see)
         dashboard_module = DashboardModule(self.app, self)
         self.content_stack.addWidget(dashboard_module)
         self.modules.append(dashboard_module)
@@ -244,11 +275,6 @@ class MainWindow(QMainWindow):
             members_module = MembersModule(self.app, self)
             self.content_stack.addWidget(members_module)
             self.modules.append(members_module)
-            
-            # Stations module
-            stations_module = StationsModule(self.app, self)
-            self.content_stack.addWidget(stations_module)
-            self.modules.append(stations_module)
         
         # Savings module
         if self.current_user['can_operate']:
@@ -272,13 +298,19 @@ class MainWindow(QMainWindow):
             self.content_stack.addWidget(reports_module)
             self.modules.append(reports_module)
         
+        # Stations module
+        if self.current_user['can_maintain']:
+            stations_module = StationsModule(self.app, self)
+            self.content_stack.addWidget(stations_module)
+            self.modules.append(stations_module)
+        
         # Settings module
         if self.current_user['can_maintain']:
             settings_module = SettingsModule(self.app, self)
             self.content_stack.addWidget(settings_module)
             self.modules.append(settings_module)
         
-        # Activate first module
+        # Activate first module (Dashboard)
         if self.nav_buttons:
             self.nav_buttons[0].setChecked(True)
             self.content_stack.setCurrentIndex(0)
@@ -324,6 +356,25 @@ class MainWindow(QMainWindow):
             module = self.modules[index]
             if hasattr(module, 'refresh'):
                 module.refresh()
+    
+    @property
+    def tabs(self):
+        """Provide tabs interface for dashboard quick actions"""
+        class TabsProxy:
+            def __init__(self, main_window):
+                self.main_window = main_window
+            
+            def setCurrentIndex(self, index):
+                # Map tab indices to navigation buttons
+                # Dashboard quick actions use old index system
+                # Adjust for dashboard being first (index 0)
+                adjusted_index = index + 1  # +1 because dashboard is now index 0
+                
+                # Find and activate the correct nav button
+                if adjusted_index < len(self.main_window.nav_buttons):
+                    self.main_window.nav_buttons[adjusted_index].click()
+        
+        return TabsProxy(self)
     
     def refresh_current_module(self):
         """Refresh current module"""
