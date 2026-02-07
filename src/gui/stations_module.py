@@ -60,11 +60,13 @@ class StationsModule(QWidget):
         
         # Stations table
         self.table = QTableWidget()
-        self.table.setColumnCount(8)
+        self.table.setColumnCount(10)
         self.table.setHorizontalHeaderLabels([
             "Station ID", 
             "Station Name", 
             "City",
+            "Contact Person",
+            "Phone",
             "Total Members",
             "Active Members",
             "Total Savings Balance",
@@ -93,19 +95,23 @@ class StationsModule(QWidget):
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)  # Station ID
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)  # Station Name
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)  # City
-        header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)  # Total Members
-        header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)  # Active Members
-        header.setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)  # Total Savings
-        header.setSectionResizeMode(6, QHeaderView.ResizeMode.ResizeToContents)  # Total Loans
-        header.setSectionResizeMode(7, QHeaderView.ResizeMode.Fixed)  # Actions
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)  # Contact Person
+        header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)  # Phone
+        header.setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)  # Total Members
+        header.setSectionResizeMode(6, QHeaderView.ResizeMode.ResizeToContents)  # Active Members
+        header.setSectionResizeMode(7, QHeaderView.ResizeMode.ResizeToContents)  # Total Savings
+        header.setSectionResizeMode(8, QHeaderView.ResizeMode.ResizeToContents)  # Total Loans
+        header.setSectionResizeMode(9, QHeaderView.ResizeMode.Fixed)  # Actions
         
         self.table.setColumnWidth(0, 100)
-        self.table.setColumnWidth(2, 150)
-        self.table.setColumnWidth(3, 130)
-        self.table.setColumnWidth(4, 130)
-        self.table.setColumnWidth(5, 180)
-        self.table.setColumnWidth(6, 120)
-        self.table.setColumnWidth(7, 120)
+        self.table.setColumnWidth(2, 120)
+        self.table.setColumnWidth(3, 150)
+        self.table.setColumnWidth(4, 120)
+        self.table.setColumnWidth(5, 130)
+        self.table.setColumnWidth(6, 130)
+        self.table.setColumnWidth(7, 180)
+        self.table.setColumnWidth(8, 120)
+        self.table.setColumnWidth(9, 160)
         
         layout.addWidget(self.table)
         

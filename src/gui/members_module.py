@@ -87,17 +87,24 @@ class MembersModule(QWidget):
         # Enable sorting
         self.table.setSortingEnabled(True)
         
-        # Enable scrollbars
+        # Enable scrollbars - BOTH horizontal and vertical
+        self.table.setHorizontalScrollMode(QTableWidget.ScrollMode.ScrollPerPixel)
+        self.table.setVerticalScrollMode(QTableWidget.ScrollMode.ScrollPerPixel)
+        self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
         self.table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
-        self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         
         # Set row height to be taller (readable)
         self.table.verticalHeader().setDefaultSectionSize(50)
         
-        # Column widths
+        # Column widths - wider actions column to prevent overlap
         self.table.setColumnWidth(0, 120)  # Member ID
         self.table.setColumnWidth(1, 250)  # Name
         self.table.setColumnWidth(2, 80)   # Gender
+        self.table.setColumnWidth(3, 130)  # Phone
+        self.table.setColumnWidth(4, 150)  # Station
+        self.table.setColumnWidth(5, 120)  # Date Joined
+        self.table.setColumnWidth(6, 100)  # Status
+        self.table.setColumnWidth(7, 150)  # Actions - WIDER to prevent overlap
         self.table.setColumnWidth(3, 130)  # Phone
         self.table.setColumnWidth(4, 180)  # Station
         self.table.setColumnWidth(5, 120)  # Date Joined
@@ -185,27 +192,32 @@ class MembersModule(QWidget):
             status_item.setBackground(Qt.GlobalColor.darkGray if status == "Inactive" else (Qt.GlobalColor.red if status == "Deceased" else Qt.GlobalColor.darkGreen))
             self.table.setItem(row, 6, status_item)
             
-            # Actions - Taller buttons
+            # Actions - Fixed layout to prevent overlap
             actions_widget = QWidget()
             actions_layout = QHBoxLayout(actions_widget)
-            actions_layout.setContentsMargins(4, 4, 4, 4)
-            actions_layout.setSpacing(4)
+            actions_layout.setContentsMargins(2, 2, 2, 2)
+            actions_layout.setSpacing(3)
             
-            view_btn = QPushButton("View")
+            view_btn = QPushButton("👁️")
+            view_btn.setToolTip("View Details")
             view_btn.setMinimumHeight(35)
-            view_btn.setMinimumWidth(70)
+            view_btn.setMinimumWidth(40)
+            view_btn.setMaximumWidth(40)
             view_btn.setCursor(Qt.CursorShape.PointingHandCursor)
             view_btn.clicked.connect(lambda checked, m=member: self.view_member(m))
             actions_layout.addWidget(view_btn)
             
-            edit_btn = QPushButton("Edit")
+            edit_btn = QPushButton("✏️")
+            edit_btn.setToolTip("Edit Member")
             edit_btn.setMinimumHeight(35)
-            edit_btn.setMinimumWidth(70)
+            edit_btn.setMinimumWidth(40)
+            edit_btn.setMaximumWidth(40)
             edit_btn.setCursor(Qt.CursorShape.PointingHandCursor)
             edit_btn.clicked.connect(lambda checked, m=member: self.edit_member(m))
             actions_layout.addWidget(edit_btn)
             
-            actions_layout.addStretch()
+            # No stretch - buttons stay together
+            actions_layout.addSpacing(0)
             self.table.setCellWidget(row, 7, actions_widget)
         
         # Update summary
